@@ -214,7 +214,7 @@ npm run lint
 
 ## 👥 Team
 
-- **Priyansh**
+- **Priyansh,**
   **Girraj** - Full Stack Developer
 
 ---
