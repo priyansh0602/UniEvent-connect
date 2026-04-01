@@ -228,7 +228,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For issues, questions, or feedback:
 - Open an issue on [GitHub Issues](https://github.com/priyansh0602/UniEvent-connect/issues)
-- Email: [your-email@example.com]
+- Email: priyanshheeranandani2@gmail.com
 
 ---
 
