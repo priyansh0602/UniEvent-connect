@@ -10,10 +10,11 @@ dist/
 build/
 .next/
 
-# Environment variables
+# Environment variables (NEVER commit these)
 .env
 .env.local
 .env.*.local
+.env.production
 
 # IDE
 .vscode/
