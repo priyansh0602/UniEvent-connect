@@ -212,15 +212,10 @@ npm run lint
 
 ---
 
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
 ## 👥 Team
 
-- **Priya** - Full Stack Developer
+- **Priyansh**
+  **Girraj** - Full Stack Developer
 
 ---
 
