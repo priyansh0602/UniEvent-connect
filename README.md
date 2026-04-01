@@ -2,7 +2,6 @@
 
 A comprehensive university event management platform that enables students to discover, register for, and engage in campus events while providing event organizers with robust management and moderation tools.
 
-**Live Demo:** [Add your deployed URL here]
 **Repository:** https://github.com/priyansh0602/UniEvent-connect
 
 ---
