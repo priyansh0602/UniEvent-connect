@@ -4,15 +4,6 @@
 
 ### The Operating System for University Culture
 
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#license)
-
-**Unify campus events · Skyrocket student engagement · Get real-time analytics**
-
 A full-stack event management platform that connects students with campus happenings through instant registration, real-time community chat, and powerful admin dashboards — all wrapped in a premium, dark-mode UI.
 
 [🚀 Live Demo](https://unievent-connect.vercel.app) · [🐛 Report Bug](https://github.com/priyansh0602/UniEvent-connect/issues) · [💡 Request Feature](https://github.com/priyansh0602/UniEvent-connect/issues)
@@ -63,89 +54,11 @@ A full-stack event management platform that connects students with campus happen
 
 ---
 
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js (v16+)
-- npm or yarn
-- A Supabase account (free at [supabase.com](https://supabase.com))
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/priyansh0602/UniEvent-connect.git
-   cd UniEvent-connect
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Then edit `.env.local` and add your Supabase credentials:
-   ```
-   VITE_SUPABASE_URL=your-supabase-url
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-   ```
-
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:5173](http://localhost:5173) in your browser.
-
----
-
-## 📁 Project Structure
-
-```
-src/
-├── pages/
-│   ├── Landing.jsx          # Home page
-│   ├── DemoSelect.jsx       # Role selection (student/admin)
-│   ├── Login.jsx            # Login page
-│   ├── Signup.jsx           # Registration page
-│   ├── StudentDashboard.jsx # Student event browsing
-│   └── AdminDashboard.jsx   # Admin event management
-├── components/
-│   ├── SettingsModal.jsx    # User profile settings
-│   ├── CommunityModal.jsx   # Event chat interface
-│   ├── FormBuilder.jsx      # Custom form designer
-│   ├── DynamicForm.jsx      # Form renderer
-│   ├── SubmissionsTable.jsx # Registration viewer
-│   └── ProtectedRoute.jsx   # Auth guard
-├── supabaseClient.js        # Supabase initialization
-├── utils/
-│   └── friendlyError.js     # Error handling utilities
-└── App.jsx                  # Main app component
-```
-
----
 
 ## 🔐 Security Features
-
-- **Environment Variables** - Supabase keys stored in `.env.local` (never committed)
 - **Role-Based Access** - Different UI and permissions for students vs. admins
 - **Profile Completion** - Required before accessing chat features
 - **Moderation Tools** - Admin controls for community safety
-- **Privacy-First** - Students see only display names in chats; admins have full access
-
----
-
-## 📚 Database Schema
-
-### Core Tables
-- **profiles** - User information (display_name, full_name, phone, degree, avatar_url)
-- **universities** - University details and verification status
-- **events** - Event details, posters, registration forms, chat settings
-- **registrations** - Student registrations with custom form responses
-- **event_chats** - Community chat messages with timestamps
-- **muted_users** - Chat moderation records
 
 ---
 
@@ -178,32 +91,6 @@ src/
 
 ---
 
-## 📦 Available Scripts
-
-```bash
-# Development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint code
-npm run lint
-```
-
----
-
-## 🐛 Known Issues & Fixes (v1.1)
-
-- ✅ Fixed chat reloading across multiple users
-- ✅ Improved real-time stability with stable subscriptions
-- ✅ Profile completion warning now displays in Settings modal
-
----
-
 ## 🚧 Future Roadmap
 
 - Push notifications for event updates
@@ -214,23 +101,12 @@ npm run lint
 - Search and advanced filtering
 - Event calendar view
 - Email reminders
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ---
 
 ## 👥 Team
 
 - **Priyansh,**
-  **Girraj** - Full Stack Developer
+  **Girraj** 
 
 ---
 
