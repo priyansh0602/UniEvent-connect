@@ -67,6 +67,15 @@ export default function Signup() {
   // Fetch universities on mount
   useEffect(() => {
     fetchUniversities();
+    
+    // Dynamically load Razorpay script
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
   }, []);
 
   const fetchUniversities = async () => {
@@ -587,12 +596,60 @@ export default function Signup() {
 
   const [paymentProcessing, setPaymentProcessing] = useState(false);
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     setPaymentProcessing(true);
-    setTimeout(() => {
+    setUniMessage('');
+
+    try {
+      // 1. Generate Order ID from our secure Edge Function
+      const { data: orderData, error: orderError } = await supabase.functions.invoke('create-razorpay-order', {
+        body: { amount: 99 }
+      });
+
+      if (orderError) throw orderError;
+
+      // 2. Open Razorpay Checkout Modal
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Use Environment Variable
+        amount: orderData.amount, 
+        currency: "INR",
+        name: "UniEvent Connect",
+        description: "University B2B License",
+        order_id: orderData.id,
+        handler: async function (response) {
+          // Payment Success Callback
+          setPaymentDone(true);
+          // Wait briefly, then proceed to finalize setup ONLY once
+          handlePaymentContinue();
+        },
+        prefill: {
+          name: formData.uniName,
+          email: formData.uniEmail,
+        },
+        theme: {
+          color: "#f59e0b" // Amber-500
+        },
+        modal: {
+          ondismiss: function() {
+            setPaymentProcessing(false);
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      
+      rzp.on('payment.failed', function (response){
+        setUniMessage(response.error.description);
+        setUniMessageType('error');
+        setPaymentProcessing(false);
+      });
+
+      rzp.open();
+    } catch (err) {
+      setUniMessage(err.message || 'Payment initiation failed.');
+      setUniMessageType('error');
       setPaymentProcessing(false);
-      setPaymentDone(true);
-    }, 1500);
+    }
   };
 
   const handlePaymentContinue = async () => {
@@ -611,11 +668,16 @@ export default function Signup() {
 
     if (insertError) {
       if (insertError.message.includes('duplicate') || insertError.code === '23505') {
-        setUniMessage('This university is already registered.');
+        const errMessage = 'You already registered this university. Please log in or use a different name.';
+        setUniMessage(errMessage);
+        alert(errMessage);
       } else {
-        setUniMessage('Failed to add university. Please try again.');
+        const errMessage = 'Failed to add university. Please try again.';
+        setUniMessage(errMessage);
+        alert(errMessage);
       }
       setUniMessageType('error');
+      // DO NOT route them to the Add Uni modal with a wiped OTP state. Let them see the error.
       setShowPaymentModal(false);
       setShowAddUniModal(true);
       return;
@@ -938,14 +1000,14 @@ export default function Signup() {
             {!paymentDone ? (
               <>
                 <h2 className="text-3xl font-black mb-6 text-white">Activate License</h2>
-                <p className="mb-8 text-zinc-400 font-medium">Complete payment of <b className="text-white">₹490</b> to activate your university portal for <b className="text-white">{formData.uniName}</b>.</p>
+                <p className="mb-8 text-zinc-400 font-medium">Complete payment of <b className="text-white">₹99</b> to activate your university portal for <b className="text-white">{formData.uniName}</b>.</p>
                 <button onClick={handlePayment} disabled={paymentProcessing} className="w-full py-4 bg-zinc-100 text-zinc-900 font-bold rounded-xl hover:bg-white transition disabled:bg-zinc-600 shadow-xl shadow-white/5">
                   {paymentProcessing ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                      Authenticating...
+                      <svg className="animate-spin h-5 w-5 text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                      Initializing Razorpay...
                     </span>
-                  ) : 'Confirm ₹490 Payment'}
+                  ) : 'Confirm ₹99 Payment'}
                 </button>
               </>
             ) : (
@@ -958,7 +1020,9 @@ export default function Signup() {
                 <h2 className="text-3xl font-black mb-3 text-white">Payment Verified!</h2>
                 <p className="text-zinc-400 mb-2 font-medium">Your university <b className="text-white">{formData.uniName}</b> is registered.</p>
                 <p className="text-sm text-zinc-500 mb-8">You can now proceed to set up your admin account.</p>
-                <button onClick={handlePaymentContinue} className="btn-admin w-full">Finalize Setup</button>
+                <button onClick={handlePaymentContinue} disabled={true} className="btn-admin w-full disabled:bg-zinc-700 disabled:cursor-not-allowed">
+                  Loading Admin Console...
+                </button>
               </div>
             )}
           </div>

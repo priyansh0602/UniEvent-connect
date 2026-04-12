@@ -131,7 +131,7 @@ export default function Landing() {
 
             <h3 className="text-2xl font-black text-white text-left mt-2">University License</h3>
             <div className="text-6xl font-black text-white my-6 text-left flex items-baseline gap-2">
-              ₹490<span className="text-xl text-zinc-500 font-medium">/mo</span>
+              ₹99<span className="text-xl text-zinc-500 font-medium">/mo</span>
             </div>
 
             <div className="w-full h-px bg-zinc-800 my-8" />

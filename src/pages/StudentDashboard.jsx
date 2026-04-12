@@ -126,13 +126,25 @@ const RegistrationModal = ({ event, onClose, onSuccess }) => {
       const studentEmail = profile?.email || session.user.email;
       const studentName = profile?.university_name ? `${session.user.email.split('@')[0]}` : session.user.email;
       
-      supabase.functions.invoke('send-registration-email', {
-        body: {
-          eventTitle: event.title,
-          studentName,
-          studentEmail
+      console.log('📧 Sending registration email to:', studentEmail, 'for event:', event.title);
+      
+      try {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-registration-email', {
+          body: {
+            eventTitle: event.title,
+            studentName,
+            studentEmail
+          }
+        });
+        if (emailError) {
+          console.error('❌ Edge Function error:', emailError);
+        } else {
+          console.log('✅ Email sent successfully:', emailData);
         }
-      }).catch(err => console.error("Failed to send edge function email:", err));
+      } catch (emailErr) {
+        console.error('❌ Failed to invoke edge function:', emailErr);
+      }
+
 
       onSuccess(event.title);
     } catch (err) {
