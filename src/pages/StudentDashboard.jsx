@@ -121,6 +121,19 @@ const RegistrationModal = ({ event, onClose, onSuccess }) => {
         });
 
       if (error) throw error;
+      
+      // Attempt to send email via Supabase Edge Function
+      const studentEmail = profile?.email || session.user.email;
+      const studentName = profile?.university_name ? `${session.user.email.split('@')[0]}` : session.user.email;
+      
+      supabase.functions.invoke('send-registration-email', {
+        body: {
+          eventTitle: event.title,
+          studentName,
+          studentEmail
+        }
+      }).catch(err => console.error("Failed to send edge function email:", err));
+
       onSuccess(event.title);
     } catch (err) {
       console.error('Registration error:', err);
@@ -363,7 +376,7 @@ export default function StudentDashboard() {
     navigate('/login');
   };
 
-  // Fetch student's registrations with event details
+  // Fetch student's registrations with event details (only for active/future events)
   const fetchMyRegistrations = async () => {
     setSidebarOpen(false);
     setShowMyRegistrations(true);
@@ -379,13 +392,55 @@ export default function StudentDashboard() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMyRegistrations(data || []);
+
+      // Filter out registrations for events that have already ended
+      const today = new Date().toISOString().split('T')[0];
+      const activeRegistrations = (data || []).filter(reg => {
+        if (!reg.events) return false; // event was deleted
+        const eventEnd = reg.events.end_date || reg.events.date;
+        return eventEnd >= today;
+      });
+
+      setMyRegistrations(activeRegistrations);
     } catch (err) {
       console.error('Error fetching registrations:', err);
       setMyRegistrations([]);
     } finally {
       setLoadingRegistrations(false);
     }
+  };
+
+  // Auto-delete events that are more than 24 hours past their end date
+  const cleanupExpiredEvents = async (allEvents) => {
+    const now = new Date();
+    const expiredIds = allEvents
+      .filter(e => {
+        const eventEnd = e.end_date || e.date;
+        if (!eventEnd) return false;
+        // Parse end date and add 24 hours
+        const endDateTime = new Date(eventEnd + 'T23:59:59');
+        const expiryTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
+        return now > expiryTime;
+      })
+      .map(e => e.id);
+
+    if (expiredIds.length > 0) {
+      // Delete registrations for expired events first
+      await supabase
+        .from('registrations')
+        .delete()
+        .in('event_id', expiredIds);
+
+      // Delete the expired events
+      await supabase
+        .from('events')
+        .delete()
+        .in('id', expiredIds);
+
+      console.log(`Auto-cleaned ${expiredIds.length} expired event(s)`);
+    }
+
+    return expiredIds;
   };
 
   // Fetch events based on the user's university_id AND setup real-time sync
@@ -411,9 +466,13 @@ export default function StudentDashboard() {
         .order('date', { ascending: true });
 
       if (uniEvents) {
+        // Auto-delete events that are 24+ hours past their end date
+        const deletedIds = await cleanupExpiredEvents(uniEvents);
+
         // Filter out expired events (end_date or date has passed)
         const today = new Date().toISOString().split('T')[0];
         const activeEvents = uniEvents.filter(e => {
+          if (deletedIds.includes(e.id)) return false; // already deleted
           const eventEnd = e.end_date || e.date;
           return eventEnd >= today;
         });

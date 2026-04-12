@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User } from 'lucide-react';
+import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, ShieldAlert } from 'lucide-react';
 import FormBuilder from '../components/FormBuilder';
 import SubmissionsTable from '../components/SubmissionsTable';
 import SettingsModal from '../components/SettingsModal';
 import CommunityModal from '../components/CommunityModal';
+import BlockedUsersModal from '../components/BlockedUsersModal';
 
 // --- Reusable Component for Event Card ---
 const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity }) => (
@@ -129,6 +130,7 @@ export default function AdminDashboard() {
   const [posterFile, setPosterFile] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
 
   useEffect(() => {
@@ -230,6 +232,26 @@ export default function AdminDashboard() {
   const categoryChips = [...defaultCategories, ...customCategories];
 
   useEffect(() => {
+    const cleanupExpiredEvents = async (allEvents) => {
+      const now = new Date();
+      const expiredIds = allEvents
+        .filter(e => {
+          const eventEnd = e.end_date || e.date;
+          if (!eventEnd) return false;
+          const endDateTime = new Date(eventEnd + 'T23:59:59');
+          const expiryTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
+          return now > expiryTime;
+        })
+        .map(e => e.id);
+
+      if (expiredIds.length > 0) {
+        await supabase.from('registrations').delete().in('event_id', expiredIds);
+        await supabase.from('events').delete().in('id', expiredIds);
+        console.log(`Auto-cleaned ${expiredIds.length} expired event(s)`);
+      }
+      return expiredIds;
+    };
+
     const fetchEvents = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -239,9 +261,13 @@ export default function AdminDashboard() {
         .eq('admin_id', session.user.id)
         .order('date', { ascending: true });
       if (!error && data) {
+        // Auto-delete events that are 24+ hours past their end date
+        const deletedIds = await cleanupExpiredEvents(data);
+
         // Filter out expired events (end_date or date has passed)
         const today = new Date().toISOString().split('T')[0];
         const activeEvents = data.filter(e => {
+          if (deletedIds.includes(e.id)) return false;
           const eventEnd = e.end_date || e.date;
           return eventEnd >= today;
         });
@@ -435,6 +461,7 @@ export default function AdminDashboard() {
             { icon: <Home className="w-5 h-5" />, label: 'Overview', action: () => { setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); } },
             { icon: <Calendar className="w-5 h-5" />, label: 'Manage Events', action: () => { setSidebarOpen(false); document.querySelector('.events-grid')?.scrollIntoView({ behavior: 'smooth' }); } },
             { icon: <PlusCircle className="w-5 h-5" />, label: 'Create New Event', action: () => { setSidebarOpen(false); resetForm(); setShowAddEventModal(true); } },
+            { icon: <ShieldAlert className="w-5 h-5" />, label: 'Blocked Users', action: () => { setSidebarOpen(false); setShowBlockedUsers(true); } },
             { icon: <Settings className="w-5 h-5" />, label: 'Settings', action: () => { setSidebarOpen(false); setShowSettings(true); } },
           ].map(item => (
             <button
@@ -573,6 +600,14 @@ export default function AdminDashboard() {
         <SubmissionsTable
           event={viewingSubmissionsEvent}
           onClose={() => setViewingSubmissionsEvent(null)}
+        />
+      )}
+
+      {/* Blocked Users Modal */}
+      {showBlockedUsers && adminProfile && (
+        <BlockedUsersModal 
+          currentUser={adminProfile} 
+          onClose={() => setShowBlockedUsers(false)} 
         />
       )}
 
