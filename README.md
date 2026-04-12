@@ -1,8 +1,23 @@
-# 🎉 UniEvent Connect
+<div align="center">
 
-A comprehensive university event management platform that enables students to discover, register for, and engage in campus events while providing event organizers with robust management and moderation tools.
+# 🎓 UniEvent Connect
 
-**Repository:** https://github.com/priyansh0602/UniEvent-connect
+### The Operating System for University Culture
+
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#license)
+
+**Unify campus events · Skyrocket student engagement · Get real-time analytics**
+
+A full-stack event management platform that connects students with campus happenings through instant registration, real-time community chat, and powerful admin dashboards — all wrapped in a premium, dark-mode UI.
+
+[🚀 Live Demo](https://unievent-connect.vercel.app) · [🐛 Report Bug](https://github.com/priyansh0602/UniEvent-connect/issues) · [💡 Request Feature](https://github.com/priyansh0602/UniEvent-connect/issues)
+
+</div>
 
 ---
 
