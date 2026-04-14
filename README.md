@@ -6,7 +6,7 @@
 
 A full-stack event management platform that connects students with campus happenings through instant registration, real-time community chat, and powerful admin dashboards — all wrapped in a premium, dark-mode UI.
 
-[🚀 Live Demo](https://unievent-connect.vercel.app) · [🐛 Report Bug](https://github.com/priyansh0602/UniEvent-connect/issues) · [💡 Request Feature](https://github.com/priyansh0602/UniEvent-connect/issues)
+[🚀 Live Demo](https://uni-event-connect.vercel.app/) · [🐛 Report Bug](https://github.com/priyansh0602/UniEvent-connect/issues) · [💡 Request Feature](https://github.com/priyansh0602/UniEvent-connect/issues)
 
 </div>
 

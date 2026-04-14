@@ -601,21 +601,17 @@ export default function Signup() {
     setUniMessage('');
 
     try {
-      // 1. Generate Order ID from our secure Edge Function
-      const { data: orderData, error: orderError } = await supabase.functions.invoke('create-razorpay-order', {
-        body: { amount: 99 }
-      });
+      // 1. Generate Subscription ID from our secure Edge Function
+      const { data: subscriptionData, error: subscriptionError } = await supabase.functions.invoke('create-razorpay-subscription');
 
-      if (orderError) throw orderError;
+      if (subscriptionError) throw subscriptionError;
 
       // 2. Open Razorpay Checkout Modal
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Use Environment Variable
-        amount: orderData.amount, 
-        currency: "INR",
         name: "UniEvent Connect",
         description: "University B2B License",
-        order_id: orderData.id,
+        subscription_id: subscriptionData.id,
         handler: async function (response) {
           // Payment Success Callback
           setPaymentDone(true);
