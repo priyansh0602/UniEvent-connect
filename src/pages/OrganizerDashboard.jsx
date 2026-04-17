@@ -1,17 +1,16 @@
-// src/pages/AdminDashboard.jsx
+// src/pages/OrganizerDashboard.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, Users, ShieldAlert } from 'lucide-react';
+import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, ShieldAlert } from 'lucide-react';
 import FormBuilder from '../components/FormBuilder';
 import SubmissionsTable from '../components/SubmissionsTable';
 import SettingsModal from '../components/SettingsModal';
 import CommunityModal from '../components/CommunityModal';
 import BlockedUsersModal from '../components/BlockedUsersModal';
-import ManageOrganizersModal from '../components/ManageOrganizersModal';
 
-// --- Reusable Component for Event Card ---
-const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity }) => (
+// --- Reusable Component for Event Card (Organizer Variant) ---
+const EventCard = ({ event, isOwner, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity }) => (
   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col">
     <div className="relative">
       <img
@@ -22,6 +21,11 @@ const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel,
       {event.category && (
         <span className="absolute top-3 left-3 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white bg-red-600 rounded-full shadow">
           {event.category}
+        </span>
+      )}
+      {!isOwner && (
+        <span className="absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800/90 border border-zinc-700 rounded-full backdrop-blur-sm">
+          Other Organizer
         </span>
       )}
     </div>
@@ -121,18 +125,17 @@ const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel,
 );
 
 
-// --- Main Dashboard Component ---
-export default function AdminDashboard() {
+// --- Main Organizer Dashboard Component ---
+export default function OrganizerDashboard() {
   const navigate = useNavigate();
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [events, setEvents] = useState([]);
   const [universityName, setUniversityName] = useState('');
-  const [adminProfile, setAdminProfile] = useState(null);
+  const [organizerProfile, setOrganizerProfile] = useState(null);
   const [posterFile, setPosterFile] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
-  const [showManageOrganizers, setShowManageOrganizers] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
   const eventsChannelRef = useRef(null);
 
@@ -142,12 +145,19 @@ export default function AdminDashboard() {
       if (!session) return;
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, university_name, university_id')
+        .select('id, university_name, university_id, full_name, status')
         .eq('id', session.user.id)
         .single();
+        
+      if (!profile || profile.status === 'rejected') {
+        await supabase.auth.signOut();
+        navigate('/login');
+        return;
+      }
+      
       if (profile) {
         setUniversityName(profile.university_name || '');
-        setAdminProfile(profile);
+        setOrganizerProfile(profile);
       }
     };
     fetchProfile();
@@ -163,29 +173,38 @@ export default function AdminDashboard() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('university_id')
+        .select('university_id, status')
         .eq('id', userId)
         .single();
 
+      if (!profile || profile.status === 'rejected') {
+        await supabase.auth.signOut();
+        navigate('/login');
+        return;
+      }
+
       profileChannel = supabase
-        .channel('admin-profile-watch')
+        .channel('organizer-profile-watch')
         .on('postgres_changes', {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'profiles',
           filter: `id=eq.${userId}`
         }, (payload) => {
-          if (payload.new.status === 'rejected') {
+          if (payload.eventType === 'DELETE' || (payload.eventType === 'UPDATE' && payload.new?.status === 'rejected')) {
             supabase.auth.signOut();
-            alert('Your account has been suspended by the administrator.');
+            alert('Your organizer account has been deactivated by the administrator.');
             navigate('/login');
+          }
+          if (payload.eventType === 'UPDATE' && payload.new?.full_name !== undefined) {
+            setOrganizerProfile(prev => ({ ...prev, full_name: payload.new.full_name }));
           }
         })
         .subscribe();
 
       if (profile?.university_id) {
         uniChannel = supabase
-          .channel('admin-uni-watch')
+          .channel('organizer-uni-watch')
           .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
@@ -230,18 +249,28 @@ export default function AdminDashboard() {
   const [viewingSubmissionsEvent, setViewingSubmissionsEvent] = useState(null);
   const [manageCommunityEvent, setManageCommunityEvent] = useState(null);
 
+  const handleManageCommunityClick = (event) => {
+    if (!organizerProfile?.full_name?.trim()) {
+      setMessage('Please update your profile with your Full Name before accessing the community.');
+      setMessageType('error');
+      setShowSettings(true);
+      return;
+    }
+    setManageCommunityEvent(event);
+  };
+
   const [customCategories, setCustomCategories] = useState([]);
   const defaultCategories = ['Technology', 'Sports', 'Arts & Culture', 'Career', 'Academics', 'Social', 'Volunteering', 'Health & Wellness'];
   const categoryChips = [...defaultCategories, ...customCategories];
 
   useEffect(() => {
-    if (!adminProfile?.university_id) return;
     let eventsChannel;
 
-    const cleanupExpiredEvents = async (allEvents) => {
+    const cleanupExpiredEvents = async (allEvents, userId) => {
       const now = new Date();
       const expiredIds = allEvents
         .filter(e => {
+          if (e.admin_id !== userId) return false;
           const eventEnd = e.end_date || e.date;
           if (!eventEnd) return false;
           const endDateTime = new Date(eventEnd + 'T23:59:59');
@@ -258,43 +287,57 @@ export default function AdminDashboard() {
       return expiredIds;
     };
 
-    const fetchAndSet = async () => {
-      // Fetch ALL events for this university (admin sees all, including organizer-created)
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('university_id', adminProfile.university_id)
-        .order('date', { ascending: true });
+    const setup = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      if (!error && data) {
-        const deletedIds = await cleanupExpiredEvents(data);
-        const today = new Date().toISOString().split('T')[0];
-        const activeEvents = data.filter(e => {
-          if (deletedIds.includes(e.id)) return false;
-          const eventEnd = e.end_date || e.date;
-          return eventEnd >= today;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('university_id')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!profile?.university_id) return;
+
+      const fetchAndSet = async () => {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('university_id', profile.university_id)
+          .order('date', { ascending: true });
+
+        if (!error && data) {
+          const deletedIds = await cleanupExpiredEvents(data, session.user.id);
+          const today = new Date().toISOString().split('T')[0];
+          const activeEvents = data.filter(e => {
+            if (deletedIds.includes(e.id)) return false;
+            const eventEnd = e.end_date || e.date;
+            return eventEnd >= today;
+          });
+          setEvents(activeEvents);
+        }
+      };
+
+      // Initial fetch
+      await fetchAndSet();
+
+      // Broadcast: re-fetch on any change to the events table emitted by peers
+      const channel = supabase
+        .channel(`uni-events-${profile.university_id}`)
+        .on('broadcast', { event: 'sync-events' }, () => {
+          fetchAndSet();
         });
-        setEvents(activeEvents);
-      }
+        
+      channel.subscribe();
+      eventsChannelRef.current = channel;
     };
 
-    // Initial fetch
-    fetchAndSet();
-
-    // Broadcast: re-fetch on ANY event change emitted by peers
-    const channel = supabase
-      .channel(`uni-events-${adminProfile.university_id}`)
-      .on('broadcast', { event: 'sync-events' }, () => {
-        fetchAndSet();
-      });
-      
-    channel.subscribe();
-    eventsChannelRef.current = channel;
+    setup();
 
     return () => {
       if (eventsChannelRef.current) supabase.removeChannel(eventsChannelRef.current);
     };
-  }, [adminProfile]);
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value, files } = e.target;
@@ -319,7 +362,7 @@ export default function AdminDashboard() {
 
   const handleSaveEvent = async (e) => {
     e.preventDefault();
-    if (savingEvent) return; // Guard against double-click
+    if (savingEvent) return;
     
     if (!formData.title || !formData.date || !formData.deadline) {
       setMessage('Please fill in all required fields.');
@@ -333,13 +376,12 @@ export default function AdminDashboard() {
     }
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !adminProfile?.university_id) {
+    if (!session || !organizerProfile?.university_id) {
       setMessage('Session expired. Please log in again.');
       setMessageType('error');
       return;
     }
 
-    // Immediately close modal, show creating toast, and disable further submissions
     const isEditing = !!editingEvent;
     setSavingEvent(true);
     setShowAddEventModal(false);
@@ -371,7 +413,7 @@ export default function AdminDashboard() {
         poster_url: posterUrl,
         reg_link: formData.reg_link || null,
         admin_id: session.user.id,
-        university_id: adminProfile.university_id,
+        university_id: organizerProfile.university_id,
         form_blueprint: formBlueprint,
       };
 
@@ -443,12 +485,11 @@ export default function AdminDashboard() {
       });
     }
     setConfirmingDeleteId(null);
-    setTimeout(() => setMessage(''), 3000);
   };
 
   useEffect(() => {
-    if (messageType === 'success' && message) {
-      const timer = setTimeout(() => setMessage(''), 3000);
+    if (message && messageType !== 'info') {
+      const timer = setTimeout(() => setMessage(''), 4000);
       return () => clearTimeout(timer);
     }
   }, [message, messageType]);
@@ -469,19 +510,19 @@ export default function AdminDashboard() {
         />
       )}
 
-      {/* Slide-out Sidebar */}
+      {/* Slide-out Sidebar — No "Manage Organizers" option */}
       <aside
         className={`fixed top-0 left-0 h-full w-72 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col bg-zinc-900 border-r border-zinc-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
-        {/* Sidebar Header — deep red gradient */}
+        {/* Sidebar Header */}
         <div
           className="flex items-center justify-between px-6 py-5"
           style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)' }}
         >
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-6 h-6 text-white opacity-90" />
-            <span className="text-base font-bold text-white truncate">{universityName || 'Admin Console'}</span>
+            <span className="text-base font-bold text-white truncate">{universityName || 'Organizer Console'}</span>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="text-white opacity-70 hover:opacity-100 transition">
             <X className="w-5 h-5" />
@@ -494,7 +535,6 @@ export default function AdminDashboard() {
             { icon: <Home className="w-5 h-5" />, label: 'Overview', action: () => { setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); } },
             { icon: <Calendar className="w-5 h-5" />, label: 'Manage Events', action: () => { setSidebarOpen(false); document.querySelector('.events-grid')?.scrollIntoView({ behavior: 'smooth' }); } },
             { icon: <PlusCircle className="w-5 h-5" />, label: 'Create New Event', action: () => { setSidebarOpen(false); resetForm(); setShowAddEventModal(true); } },
-            { icon: <Users className="w-5 h-5" />, label: 'Manage Organizers', action: () => { setSidebarOpen(false); setShowManageOrganizers(true); } },
             { icon: <ShieldAlert className="w-5 h-5" />, label: 'Blocked Users', action: () => { setSidebarOpen(false); setShowBlockedUsers(true); } },
             { icon: <Settings className="w-5 h-5" />, label: 'Settings', action: () => { setSidebarOpen(false); setShowSettings(true); } },
           ].map(item => (
@@ -529,7 +569,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-2 py-4">
             <div className="w-2 h-8 rounded-full" style={{ backgroundColor: '#dc2626' }} />
             <span className="text-xl font-black text-white tracking-tight uppercase">
-              Admin <span className="text-zinc-500">Panel</span>
+              Organizer <span className="text-zinc-500">Panel</span>
             </span>
           </div>
         </div>
@@ -538,7 +578,7 @@ export default function AdminDashboard() {
           <button 
             onClick={() => setShowSettings(true)}
             className="flex items-center justify-center w-10 h-10 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 hover:border-red-500/50 shadow-inner overflow-hidden transition-all group"
-            title="Admin Settings"
+            title="Organizer Settings"
           >
             <User className="w-5 h-5 text-zinc-400 group-hover:text-red-500 transition-colors" />
           </button>
@@ -558,7 +598,7 @@ export default function AdminDashboard() {
         {/* Page Header */}
         <div className="mb-10">
           <h1 className="text-4xl font-extrabold text-white mb-1">Event Management</h1>
-          <p className="text-zinc-400 text-base">Create, manage and publish events for your university.</p>
+          <p className="text-zinc-400 text-base">Create and manage events for your university.</p>
           <div className="h-1 w-20 rounded-full mt-3" style={{ backgroundColor: '#dc2626' }} />
         </div>
 
@@ -566,8 +606,8 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           {[
             { label: 'Total Events', value: events.length, icon: <Calendar className="w-5 h-5" /> },
-            { label: 'Upcoming', value: events.filter(e => new Date(e.date) >= new Date()).length, icon: <PlusCircle className="w-5 h-5" /> },
-            { label: 'Past Events', value: events.filter(e => new Date(e.date) < new Date()).length, icon: <Eye className="w-5 h-5" /> },
+            { label: 'My Events', value: events.filter(e => organizerProfile && e.admin_id === organizerProfile.id).length, icon: <PlusCircle className="w-5 h-5" /> },
+            { label: 'Other Events', value: events.filter(e => organizerProfile && e.admin_id !== organizerProfile.id).length, icon: <Eye className="w-5 h-5" /> },
           ].map(stat => (
             <div key={stat.label} className="bg-zinc-900 rounded-2xl p-5 flex items-center gap-4 shadow-sm border border-zinc-800">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: '#dc2626' }}>
@@ -588,7 +628,7 @@ export default function AdminDashboard() {
               <Calendar className="w-10 h-10" style={{ color: '#dc2626' }} />
             </div>
             <h3 className="text-xl font-bold text-white">No Events Yet</h3>
-            <p className="text-zinc-400 mt-2 mb-6">Start by creating your first university event.</p>
+            <p className="text-zinc-400 mt-2 mb-6">Start by creating your first event.</p>
             <button
               onClick={() => { resetForm(); setShowAddEventModal(true); }}
               className="inline-flex items-center gap-2 px-6 py-3 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition"
@@ -603,13 +643,14 @@ export default function AdminDashboard() {
               <EventCard
                 key={event.id || index}
                 event={event}
+                isOwner={organizerProfile && event.admin_id === organizerProfile.id}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteEvent}
                 isConfirming={confirmingDeleteId === event.id}
                 onConfirm={() => setConfirmingDeleteId(event.id)}
                 onCancel={() => setConfirmingDeleteId(null)}
                 onViewSubmissions={setViewingSubmissionsEvent}
-                onManageCommunity={setManageCommunityEvent}
+                onManageCommunity={handleManageCommunityClick}
               />
             ))}
           </div>
@@ -629,8 +670,8 @@ export default function AdminDashboard() {
         <SettingsModal 
           onClose={() => setShowSettings(false)} 
           accentColor="red" 
-          role="admin" 
-          onProfileUpdated={(updates) => setAdminProfile(prev => ({ ...prev, ...updates }))}
+          role="organizer" 
+          onProfileUpdated={(updates) => setOrganizerProfile(prev => ({ ...prev, ...updates }))}
         />
       )}
 
@@ -643,29 +684,21 @@ export default function AdminDashboard() {
       )}
 
       {/* Blocked Users Modal */}
-      {showBlockedUsers && adminProfile && (
+      {showBlockedUsers && organizerProfile && (
         <BlockedUsersModal 
-          currentUser={adminProfile} 
+          currentUser={organizerProfile} 
           onClose={() => setShowBlockedUsers(false)} 
         />
       )}
 
-      {/* Manage Organizers Modal */}
-      {showManageOrganizers && adminProfile && (
-        <ManageOrganizersModal
-          adminProfile={adminProfile}
-          onClose={() => setShowManageOrganizers(false)}
-        />
-      )}
-
       {/* Community Management Modal */}
-      {manageCommunityEvent && adminProfile && (
+      {manageCommunityEvent && organizerProfile && (
         <CommunityModal
           event={manageCommunityEvent}
-          currentUser={{ id: adminProfile.id }}
+          currentUser={{ id: organizerProfile.id }}
           isAdmin={true}
-          profile={adminProfile}
-          role="admin"
+          profile={organizerProfile}
+          role="organizer"
           onClose={() => setManageCommunityEvent(null)}
         />
       )}

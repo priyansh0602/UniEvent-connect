@@ -37,7 +37,7 @@ function Toast({ message, type, onDismiss }) {
   );
 }
 
-export default function CommunityModal({ event, currentUser, isAdmin, profile, onClose }) {
+export default function CommunityModal({ event, currentUser, isAdmin, profile, role, onClose }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
@@ -143,13 +143,13 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, o
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, {
       id: tempId, temp: true, event_id: event.id, student_id: currentUser?.id,
-      sender_name: isAdmin ? 'Admin Announcement' : profile.display_name,
+      sender_name: isAdmin ? (profile?.full_name || 'Admin Announcement') : profile.display_name,
       message: messageText, is_admin: isAdmin, created_at: new Date().toISOString()
     }]);
 
     const { data: insertedMsg, error } = await supabase.from('event_chats').insert([{
       event_id: event.id, student_id: currentUser?.id,
-      sender_name: isAdmin ? 'Admin Announcement' : profile.display_name,
+      sender_name: isAdmin ? (profile?.full_name || 'Admin Announcement') : profile.display_name,
       message: messageText, is_admin: isAdmin
     }]).select().single();
 
@@ -270,6 +270,14 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, o
             messages.map((msg) => {
               const isMe = msg.student_id === currentUser.id;
               const isBlocked = blockedStudentIds.has(msg.student_id);
+              const ageMins = (Date.now() - new Date(msg.created_at).getTime()) / 60000;
+              
+              const isSelfDelete = isMe && (role === 'student' ? ageMins <= 1 : true);
+              const isAdminDelete = role === 'admin';
+              const isOrganizerDelete = role === 'organizer' && !msg.is_admin;
+              
+              const canDelete = !msg.temp && (isSelfDelete || isAdminDelete || isOrganizerDelete);
+              const showFooter = canDelete || (!msg.temp && isAdmin && !msg.is_admin);
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe && !isAdmin ? 'items-end' : 'items-start'} ${msg.temp ? 'opacity-60' : ''}`}>
                   <div className="flex items-center gap-2 mb-1">
@@ -293,23 +301,27 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, o
                   }`}>
                     <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.message}</p>
 
-                    {isAdmin && !msg.is_admin && !msg.temp && (
-                      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-white/10">
-                        {isBlocked ? (
-                          <button onClick={() => requestUnblockUser(msg.student_id, msg.sender_name)}
-                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-green-400 hover:bg-green-500/20 transition">
-                            <Unlock className="w-3 h-3" /> Unblock
-                          </button>
-                        ) : (
-                          <button onClick={() => requestBlockUser(msg.student_id, msg.sender_name)}
-                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-amber-400 hover:bg-amber-500/20 transition">
-                            <ShieldAlert className="w-3 h-3" /> Block
+                    {showFooter && (
+                      <div className={`flex items-center gap-1 mt-2 pt-2 border-t ${msg.is_admin ? 'border-white/20' : (isMe && !isAdmin ? 'border-white/20' : 'border-zinc-700')}`}>
+                        {isAdmin && !msg.is_admin && (
+                          isBlocked ? (
+                            <button onClick={() => requestUnblockUser(msg.student_id, msg.sender_name)}
+                              className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-green-400 hover:bg-zinc-700 transition">
+                              <Unlock className="w-3 h-3" /> Unblock
+                            </button>
+                          ) : (
+                            <button onClick={() => requestBlockUser(msg.student_id, msg.sender_name)}
+                              className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-amber-400 hover:bg-zinc-700 transition">
+                              <ShieldAlert className="w-3 h-3" /> Block
+                            </button>
+                          )
+                        )}
+                        {canDelete && (
+                          <button onClick={() => requestDeleteMessage(msg.id)}
+                            className={`flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md transition ${msg.is_admin || (isMe && !isAdmin) ? 'text-white/80 hover:bg-black/20 hover:text-white' : 'text-red-400 hover:bg-zinc-700'}`}>
+                            <Trash2 className="w-3 h-3" /> Delete
                           </button>
                         )}
-                        <button onClick={() => requestDeleteMessage(msg.id)}
-                          className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-red-400 hover:bg-red-500/20 transition">
-                          <Trash2 className="w-3 h-3" /> Delete
-                        </button>
                       </div>
                     )}
                   </div>

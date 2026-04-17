@@ -11,6 +11,7 @@ export default function SubmissionsTable({ event, onClose }) {
 
   // Fetch existing submissions
   useEffect(() => {
+    let channel;
     const fetchSubmissions = async () => {
       setLoading(true);
       const { data, error } = await supabase
@@ -22,25 +23,25 @@ export default function SubmissionsTable({ event, onClose }) {
       if (!error && data) setSubmissions(data);
       setLoading(false);
     };
+    
     fetchSubmissions();
-  }, [event.id]);
 
-  // Real-time subscription for new registrations
-  useEffect(() => {
-    const channel = supabase
+    // Real-time subscription for new registrations
+    channel = supabase
       .channel(`registrations-${event.id}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'registrations',
         filter: `event_id=eq.${event.id}`,
-      }, (payload) => {
-        setSubmissions(prev => [payload.new, ...prev]);
+      }, () => {
+        // Re-fetch everything cleanly to ensure RLS doesn't block payload visibility
+        fetchSubmissions();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [event.id]);
 

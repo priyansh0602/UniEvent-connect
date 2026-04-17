@@ -7,8 +7,10 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import AdminDashboard from './pages/AdminDashboard'
 import StudentDashboard from './pages/StudentDashboard'
-import DemoSelect from './pages/DemoSelect' // 👈 New Import
-import ProtectedRoute from './components/ProtectedRoute' // 👈 Route guard
+import OrganizerDashboard from './pages/OrganizerDashboard'
+import OrganizerInvite from './pages/OrganizerInvite'
+import DemoSelect from './pages/DemoSelect'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
@@ -21,6 +23,9 @@ function App() {
       {/* Demo Selection - Publicly accessible */}
       <Route path="/demo-select" element={<DemoSelect />} />
 
+      {/* Organizer Invite - Publicly accessible (token-based) */}
+      <Route path="/organizer-invite" element={<OrganizerInvite />} />
+
       {/* Main Dashboard Routes - Protected */}
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route path="/student-dashboard" element={<StudentDashboard />} />
@@ -29,6 +34,10 @@ function App() {
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/faculty/dashboard" element={<AdminDashboard />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['organizer']} />}>
+        <Route path="/organizer-dashboard" element={<OrganizerDashboard />} />
       </Route>
     </Routes>
   )

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { X, Mail, Lock, CheckCircle, AlertTriangle, KeyRound, Camera } from 'lucide-react';
 
-export default function SettingsModal({ onClose, accentColor = 'blue', role = 'student', initialWarning = null }) {
+export default function SettingsModal({ onClose, onProfileUpdated, accentColor = 'blue', role = 'student', initialWarning = null }) {
   const [userEmail, setUserEmail] = useState('');
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'security'
@@ -50,9 +50,9 @@ export default function SettingsModal({ onClose, accentColor = 'blue', role = 's
       if (session?.user?.email) {
         setUserEmail(session.user.email);
         // Fetch only the fields relevant to this role
-        const selectFields = role === 'admin'
-          ? 'full_name, phone'
-          : 'display_name, full_name, phone, degree, avatar_url';
+        const selectFields = role === 'student'
+          ? 'display_name, full_name, phone, degree, avatar_url'
+          : 'full_name, phone';
         const { data: profile } = await supabase
           .from('profiles')
           .select(selectFields)
@@ -88,6 +88,12 @@ export default function SettingsModal({ onClose, accentColor = 'blue', role = 's
       return;
     }
     
+    if (role === 'organizer' && (!fullName || !fullName.trim())) {
+      setMessage('Full name is required for organizers.');
+      setMessageType('error');
+      return;
+    }
+    
     setSavingProfile(true);
     setMessage('');
     try {
@@ -108,10 +114,10 @@ export default function SettingsModal({ onClose, accentColor = 'blue', role = 's
 
       // Build role-specific payload so admin and student don't overwrite each other
       let payload;
-      if (role === 'admin') {
+      if (role === 'admin' || role === 'organizer') {
         payload = {
           full_name: fullName.trim() || null,
-          phone: phone.trim() || null,
+          phone: role === 'organizer' ? null : (phone.trim() || null),
         };
       } else {
         payload = {
@@ -129,6 +135,12 @@ export default function SettingsModal({ onClose, accentColor = 'blue', role = 's
         .eq('id', session.user.id);
         
       if (error) throw error;
+      
+      // Notify parent component immediately for instant UI update
+      if (onProfileUpdated) {
+        onProfileUpdated(payload);
+      }
+      
       setMessage('Changes saved!');
       setMessageType('success');
       // Auto-close after success
@@ -409,13 +421,13 @@ export default function SettingsModal({ onClose, accentColor = 'blue', role = 's
                 </div>
               </>
             ) : (
-              /* ═══ ADMIN PROFILE ═══ */
+              /* ═══ ADMIN / ORGANIZER PROFILE ═══ */
               <>
                 <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-                  Admin Profile
+                  {role === 'organizer' ? 'Organizer Profile' : 'Admin Profile'}
                 </h3>
                 <p className="text-sm text-zinc-400 mb-5">
-                  Manage your administrator account details.
+                  Manage your {role === 'organizer' ? 'organizer' : 'administrator'} account details.
                 </p>
                 
                 <div className="space-y-3 mb-6">
@@ -433,22 +445,24 @@ export default function SettingsModal({ onClose, accentColor = 'blue', role = 's
                       <label className="block text-xs font-medium text-zinc-300 mb-1">Full Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. Dr. John Doe"
+                        placeholder={role === 'organizer' ? 'e.g. John Doe' : 'e.g. Dr. John Doe'}
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-red-500 focus:border-red-500 transition"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-300 mb-1">Phone Number</label>
-                      <input
-                        type="tel"
-                        placeholder="+91 98XXX XXXXX"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-red-500 focus:border-red-500 transition"
-                      />
-                    </div>
+                    {role !== 'organizer' && (
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-300 mb-1">Phone Number</label>
+                        <input
+                          type="tel"
+                          placeholder="+91 98XXX XXXXX"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-red-500 focus:border-red-500 transition"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

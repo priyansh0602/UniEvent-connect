@@ -497,28 +497,9 @@ export default function StudentDashboard() {
 
     const setupEventRealtime = () => {
       eventChannel = supabase
-        .channel('student-events-realtime')
-        .on('postgres_changes', {
-          event: '*', // Listen to All changes
-          schema: 'public',
-          table: 'events',
-          filter: `university_id=eq.${universityId}`
-        }, (payload) => {
-          const today = new Date().toISOString().split('T')[0];
-          
-          if (payload.eventType === 'INSERT') {
-            const newEvent = payload.new;
-            setEvents(prev => {
-                const exists = prev.some(e => e.id === newEvent.id);
-                if (exists) return prev;
-                return [newEvent, ...prev].sort((a, b) => a.date.localeCompare(b.date));
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedEvent = payload.new;
-            setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
-          } else if (payload.eventType === 'DELETE') {
-            setEvents(prev => prev.filter(e => e.id !== payload.old.id));
-          }
+        .channel(`uni-events-${universityId}`)
+        .on('broadcast', { event: 'sync-events' }, () => {
+          fetchEvents();
         })
         .subscribe();
     };
@@ -891,6 +872,7 @@ export default function StudentDashboard() {
           currentUser={{ id: studentProfile.id }}
           isAdmin={false}
           profile={studentProfile}
+          role="student"
           onClose={() => { setCommunityEvent(null); fetchMyRegistrations(); }} // refresh profile implicitly if they updated it
         />
       )}
