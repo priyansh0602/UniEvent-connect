@@ -2,16 +2,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, Users, ShieldAlert } from 'lucide-react';
+import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, Users, ShieldAlert, Shield } from 'lucide-react';
 import FormBuilder from '../components/FormBuilder';
 import SubmissionsTable from '../components/SubmissionsTable';
 import SettingsModal from '../components/SettingsModal';
 import CommunityModal from '../components/CommunityModal';
 import BlockedUsersModal from '../components/BlockedUsersModal';
 import ManageOrganizersModal from '../components/ManageOrganizersModal';
+import EventManagementModal from '../components/EventManagementModal';
 
 // --- Reusable Component for Event Card ---
-const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity }) => (
+const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity, onManagement }) => (
   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col">
     <div className="relative">
       <img
@@ -59,6 +60,14 @@ const EventCard = ({ event, onEdit, onDelete, isConfirming, onConfirm, onCancel,
       )}
 
       <div className="mt-auto space-y-2">
+        {/* Management Button - Always visible for admin */}
+        <button
+          onClick={() => onManagement(event)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-violet-400 border border-violet-500/30 bg-violet-600/10 hover:bg-violet-600/20 rounded-xl transition font-semibold"
+        >
+          <Shield className="w-4 h-4" /> Admin Control Center
+        </button>
+
         {/* Manage Community Button */}
         <button
           onClick={() => onManageCommunity(event)}
@@ -229,6 +238,7 @@ export default function AdminDashboard() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [viewingSubmissionsEvent, setViewingSubmissionsEvent] = useState(null);
   const [manageCommunityEvent, setManageCommunityEvent] = useState(null);
+  const [managementEvent, setManagementEvent] = useState(null);
 
   const [customCategories, setCustomCategories] = useState([]);
   const defaultCategories = ['Technology', 'Sports', 'Arts & Culture', 'Career', 'Academics', 'Social', 'Volunteering', 'Health & Wellness'];
@@ -610,6 +620,7 @@ export default function AdminDashboard() {
                 onCancel={() => setConfirmingDeleteId(null)}
                 onViewSubmissions={setViewingSubmissionsEvent}
                 onManageCommunity={setManageCommunityEvent}
+                onManagement={setManagementEvent}
               />
             ))}
           </div>
@@ -667,6 +678,16 @@ export default function AdminDashboard() {
           profile={adminProfile}
           role="admin"
           onClose={() => setManageCommunityEvent(null)}
+        />
+      )}
+
+      {/* Event Management Modal */}
+      {managementEvent && adminProfile && (
+        <EventManagementModal
+          event={managementEvent}
+          currentUser={adminProfile}
+          role="admin"
+          onClose={() => setManagementEvent(null)}
         />
       )}
 

@@ -2,15 +2,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, ShieldAlert } from 'lucide-react';
+import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, ShieldAlert, Shield } from 'lucide-react';
 import FormBuilder from '../components/FormBuilder';
 import SubmissionsTable from '../components/SubmissionsTable';
 import SettingsModal from '../components/SettingsModal';
 import CommunityModal from '../components/CommunityModal';
 import BlockedUsersModal from '../components/BlockedUsersModal';
+import EventManagementModal from '../components/EventManagementModal';
 
 // --- Reusable Component for Event Card (Organizer Variant) ---
-const EventCard = ({ event, isOwner, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity }) => (
+const EventCard = ({ event, isOwner, isManager, onEdit, onDelete, isConfirming, onConfirm, onCancel, onViewSubmissions, onManageCommunity, onManagement }) => (
   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col">
     <div className="relative">
       <img
@@ -63,6 +64,16 @@ const EventCard = ({ event, isOwner, onEdit, onDelete, isConfirming, onConfirm, 
       )}
 
       <div className="mt-auto space-y-2">
+        {/* Management Button - Only for owner or manager */}
+        {(isOwner || isManager) && (
+          <button
+            onClick={() => onManagement(event)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-violet-400 border border-violet-500/30 bg-violet-600/10 hover:bg-violet-600/20 rounded-xl transition font-semibold"
+          >
+            <Shield className="w-4 h-4" /> {isOwner ? 'Management' : 'Staff Collaboration'}
+          </button>
+        )}
+
         {/* Manage Community Button */}
         <button
           onClick={() => onManageCommunity(event)}
@@ -248,12 +259,50 @@ export default function OrganizerDashboard() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [viewingSubmissionsEvent, setViewingSubmissionsEvent] = useState(null);
   const [manageCommunityEvent, setManageCommunityEvent] = useState(null);
+  const [managementEvent, setManagementEvent] = useState(null);
+  const [managedEventIds, setManagedEventIds] = useState(new Set());
+
+  // Fetch managed event IDs for this organizer
+  useEffect(() => {
+    if (!organizerProfile?.id || !organizerProfile?.university_id) return;
+
+    const fetchManaged = async () => {
+      const { data } = await supabase
+        .from('event_managers')
+        .select('event_id')
+        .eq('user_id', organizerProfile.id);
+      if (data) setManagedEventIds(new Set(data.map(d => d.event_id)));
+    };
+
+    fetchManaged();
+
+    // Listen for instant manager sync broadcasts from the same university channel
+    const managerChannel = supabase
+      .channel(`uni-managers-${organizerProfile.university_id}`)
+      .on('broadcast', { event: 'sync-managers' }, () => {
+        fetchManaged();
+      });
+    managerChannel.subscribe();
+
+    return () => {
+      supabase.removeChannel(managerChannel);
+    };
+  }, [organizerProfile?.id, organizerProfile?.university_id]);
+
+  const hasPermission = (event) => {
+    return organizerProfile && (event.admin_id === organizerProfile.id || managedEventIds.has(event.id));
+  };
 
   const handleManageCommunityClick = (event) => {
     if (!organizerProfile?.full_name?.trim()) {
       setMessage('Please update your profile with your Full Name before accessing the community.');
       setMessageType('error');
       setShowSettings(true);
+      return;
+    }
+    if (!hasPermission(event)) {
+      setMessage('You only have permission to manage your own events or those assigned to you.');
+      setMessageType('error');
       return;
     }
     setManageCommunityEvent(event);
@@ -447,6 +496,11 @@ export default function OrganizerDashboard() {
   };
 
   const handleEditClick = (event) => {
+    if (!hasPermission(event)) {
+      setMessage('You only have permission to edit your own events or those assigned to you.');
+      setMessageType('error');
+      return;
+    }
     setEditingEvent(event);
     setFormData({
       title: event.title || '',
@@ -468,6 +522,12 @@ export default function OrganizerDashboard() {
   };
 
   const handleDeleteEvent = async (eventToDelete) => {
+    if (!hasPermission(eventToDelete)) {
+      setMessage('You only have permission to delete your own events or those assigned to you.');
+      setMessageType('error');
+      setConfirmingDeleteId(null);
+      return;
+    }
     const { error } = await supabase.from('events').delete().eq('id', eventToDelete.id);
     if (error) {
       setMessage(error.message || 'Failed to delete event.');
@@ -644,6 +704,7 @@ export default function OrganizerDashboard() {
                 key={event.id || index}
                 event={event}
                 isOwner={organizerProfile && event.admin_id === organizerProfile.id}
+                isManager={managedEventIds.has(event.id)}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteEvent}
                 isConfirming={confirmingDeleteId === event.id}
@@ -651,6 +712,7 @@ export default function OrganizerDashboard() {
                 onCancel={() => setConfirmingDeleteId(null)}
                 onViewSubmissions={setViewingSubmissionsEvent}
                 onManageCommunity={handleManageCommunityClick}
+                onManagement={setManagementEvent}
               />
             ))}
           </div>
@@ -700,6 +762,16 @@ export default function OrganizerDashboard() {
           profile={organizerProfile}
           role="organizer"
           onClose={() => setManageCommunityEvent(null)}
+        />
+      )}
+
+      {/* Event Management Modal */}
+      {managementEvent && organizerProfile && (
+        <EventManagementModal
+          event={managementEvent}
+          currentUser={organizerProfile}
+          role="organizer"
+          onClose={() => setManagementEvent(null)}
         />
       )}
 
