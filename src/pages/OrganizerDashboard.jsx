@@ -546,6 +546,14 @@ export default function OrganizerDashboard() {
     }
     setConfirmingDeleteId(null);
   };
+  const handleViewSubmissionsClick = (event) => {
+    if (!hasPermission(event)) {
+      setMessage('You only have permission to view submissions for your own events or those assigned to you.');
+      setMessageType('error');
+      return;
+    }
+    setViewingSubmissionsEvent(event);
+  };
 
   useEffect(() => {
     if (message && messageType !== 'info') {
@@ -710,7 +718,7 @@ export default function OrganizerDashboard() {
                 isConfirming={confirmingDeleteId === event.id}
                 onConfirm={() => setConfirmingDeleteId(event.id)}
                 onCancel={() => setConfirmingDeleteId(null)}
-                onViewSubmissions={setViewingSubmissionsEvent}
+                onViewSubmissions={handleViewSubmissionsClick}
                 onManageCommunity={handleManageCommunityClick}
                 onManagement={setManagementEvent}
               />
