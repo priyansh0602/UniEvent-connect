@@ -738,7 +738,15 @@ export default function OrganizerDashboard() {
       {/* Settings Modal */}
       {showSettings && (
         <SettingsModal 
-          onClose={() => setShowSettings(false)} 
+          onClose={async () => {
+            setShowSettings(false);
+            // Refresh profile from DB so community chat picks up the new name instantly
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const { data } = await supabase.from('profiles').select('id, university_name, university_id, full_name, status').eq('id', session.user.id).single();
+              if (data) setOrganizerProfile(data);
+            }
+          }} 
           accentColor="red" 
           role="organizer" 
           onProfileUpdated={(updates) => setOrganizerProfile(prev => ({ ...prev, ...updates }))}

@@ -76,14 +76,8 @@ export default function SettingsModal({ onClose, onProfileUpdated, accentColor =
   }, [role]);
 
   const handleSaveProfile = async () => {
-    // Only require display_name for students
-    if (role === 'student' && !displayName.trim()) {
-      setMessage('Display name cannot be empty.');
-      setMessageType('error');
-      return;
-    }
-    if (role === 'student' && displayName.trim().length > 20) {
-      setMessage('Display name must be under 20 characters.');
+    if (role === 'student' && !fullName.trim()) {
+      setMessage('Name cannot be empty.');
       setMessageType('error');
       return;
     }
@@ -121,11 +115,8 @@ export default function SettingsModal({ onClose, onProfileUpdated, accentColor =
         };
       } else {
         payload = {
-          display_name: displayName.trim(),
-          full_name: fullName.trim() || null,
-          phone: phone.trim() || null,
-          degree: degree.trim() || null,
-          avatar_url: finalAvatarUrl || null
+          display_name: fullName.trim(),
+          full_name: fullName.trim(),
         };
       }
 
@@ -135,6 +126,15 @@ export default function SettingsModal({ onClose, onProfileUpdated, accentColor =
         .eq('id', session.user.id);
         
       if (error) throw error;
+
+      // Update sender_name on all existing chat messages so name changes propagate instantly
+      const newChatName = payload.full_name || payload.display_name;
+      if (newChatName) {
+        await supabase
+          .from('event_chats')
+          .update({ sender_name: newChatName })
+          .eq('student_id', session.user.id);
+      }
       
       // Notify parent component immediately for instant UI update
       if (onProfileUpdated) {
@@ -322,103 +322,36 @@ export default function SettingsModal({ onClose, onProfileUpdated, accentColor =
             {role === 'student' ? (
               /* ═══ STUDENT PROFILE ═══ */
               <>
-                <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
-                  Community Identity
+              <>
+                <h3 className="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                  Personal Details
                 </h3>
-                <p className="text-xs text-zinc-400 mb-4">
-                  Set a pseudo-name to interact in event communities.
+                <p className="text-xs text-zinc-400 mb-5">
+                  Update your basic information below.
                 </p>
 
-                {/* Avatar and Display Name Row */}
-                <div className="flex items-center gap-6 mb-4 border-b border-zinc-800 pb-4">
-                  <div 
-                    className="relative group cursor-pointer rounded-full shrink-0" 
-                    onClick={() => document.getElementById('avatar-upload')?.click()}
-                  >
-                    <div className={`w-16 h-16 rounded-full border-3 ${avatarPreview ? 'border-amber-500/30' : 'border-zinc-800'} bg-zinc-900 overflow-hidden shadow-lg flex items-center justify-center transition duration-300 group-hover:border-amber-500`}>
-                      {avatarPreview ? (
-                         <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                         <Camera className="w-6 h-6 text-zinc-600 group-hover:text-amber-500 transition-colors" />
-                      )}
-                    </div>
-                    <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                       <Camera className="w-4 h-4 text-white mb-0.5" />
-                       <span className="text-[9px] font-bold text-white uppercase tracking-wider">Upload</span>
-                    </div>
-                    <input 
-                      id="avatar-upload"
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setAvatarFile(file);
-                          setAvatarPreview(URL.createObjectURL(file));
-                        }
-                      }} 
-                    />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">Display Name <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      placeholder="e.g. CodeNinja99"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      maxLength="20"
-                      className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500 transition"
-                    />
-                    <p className="text-[10px] text-zinc-500 mt-1 text-right">{displayName.length}/20</p>
-                  </div>
-                </div>
-
-                <h4 className="text-xs font-bold text-white mb-0.5">Personal Details</h4>
-                <p className="text-[10px] text-zinc-500 mb-3 tracking-wide">ONLY VISIBLE TO EVENT ADMINS.</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <div className="space-y-4 mb-6">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">Email</label>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">Email Address</label>
                     <input
                       type="email"
                       value={userEmail}
                       disabled
-                      className="w-full p-2 text-sm border border-zinc-700 bg-zinc-900/50 text-zinc-500 rounded-lg cursor-not-allowed"
+                      className="w-full p-2.5 text-sm border border-zinc-700 bg-zinc-900/50 text-zinc-500 rounded-lg cursor-not-allowed"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">Full Name</label>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">Full Name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       placeholder="e.g. John Doe"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      placeholder="+91 98XXX XXXXX"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">Degree</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. B.Tech CS"
-                      value={degree}
-                      onChange={(e) => setDegree(e.target.value)}
-                      className="w-full p-2 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500 transition"
+                      className="w-full p-2.5 text-sm border border-zinc-700 bg-zinc-950 text-white rounded-lg focus:ring-amber-500 focus:border-amber-500 transition"
                     />
                   </div>
                 </div>
+              </>
               </>
             ) : (
               /* ═══ ADMIN / ORGANIZER PROFILE ═══ */

@@ -522,13 +522,8 @@ export default function StudentDashboard() {
   }, [filterDate, events]);
 
   const handleRegister = (event) => {
-    // Force mandatory profile completion
-    if (!studentProfile ||
-        !studentProfile.display_name?.trim() ||
-        !studentProfile.full_name?.trim() ||
-        !studentProfile.phone?.trim() ||
-        !studentProfile.degree?.trim()) {
-      setSettingsWarning('Please complete your profile to continue to chat');
+    if (!studentProfile || !studentProfile.full_name?.trim()) {
+      setSettingsWarning('Please complete your profile (Full Name) to continue');
       setShowSettings(true);
       return;
     }
@@ -651,9 +646,9 @@ export default function StudentDashboard() {
             className="flex items-center justify-center w-10 h-10 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 hover:border-amber-500/50 shadow-inner overflow-hidden transition-all group"
             title="My Profile"
           >
-            {studentProfile?.display_name ? (
+            {studentProfile?.full_name ? (
               <div className="w-full h-full bg-amber-500 flex items-center justify-center text-zinc-950 font-bold text-sm">
-                {studentProfile.display_name.charAt(0).toUpperCase()}
+                {studentProfile.full_name.charAt(0).toUpperCase()}
               </div>
             ) : (
               <User className="w-5 h-5 text-zinc-400 group-hover:text-amber-500 transition-colors" />

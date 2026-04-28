@@ -49,6 +49,10 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, r
   const [toast, setToast] = useState(null);
   const messagesEndRef = useRef(null);
 
+  // Keep a ref to always have the latest profile (avoids stale closures in polling)
+  const profileRef = useRef(profile);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+
   const showToast = (msg, type = 'success') => setToast({ message: msg, type });
 
   // ========== SINGLE useEffect: fetch once + poll every 1.5s ==========
@@ -68,11 +72,23 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, r
         .order('created_at', { ascending: true });
 
       if (msgs && alive) {
+        // Use ref to get the LATEST profile (not the stale closure value)
+        const currentProfile = profileRef.current;
+        const myCurrentName = isAdmin
+          ? (currentProfile?.full_name || 'Admin Announcement')
+          : (currentProfile?.display_name || currentProfile?.full_name);
+
         setMessages(prev => {
           // Keep temp messages that are still in flight
           const realIds = new Set(msgs.map(m => m.id));
           const survivingTemps = prev.filter(m => m.temp && !realIds.has(m.id));
-          return [...msgs, ...survivingTemps];
+          // Overlay current name on own messages so name changes are instant
+          const updated = msgs.map(m =>
+            m.student_id === currentUser?.id && myCurrentName
+              ? { ...m, sender_name: myCurrentName }
+              : m
+          );
+          return [...updated, ...survivingTemps];
         });
       }
 
@@ -132,24 +148,28 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, r
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || isMuted) return;
-    if (!isAdmin && !profile?.display_name) {
-      showToast('Please set a Display Name in Settings to chat.', 'error');
+    if (!isAdmin && !profile?.display_name && !profile?.full_name) {
+      showToast('Please set your Name in Settings to chat.', 'error');
       return;
     }
 
     const messageText = newMessage.trim();
     setNewMessage('');
 
+    const senderName = isAdmin
+      ? (profile?.full_name || 'Admin Announcement')
+      : (profile?.display_name || profile?.full_name);
+
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, {
       id: tempId, temp: true, event_id: event.id, student_id: currentUser?.id,
-      sender_name: isAdmin ? (profile?.full_name || 'Admin Announcement') : profile.display_name,
+      sender_name: senderName,
       message: messageText, is_admin: isAdmin, created_at: new Date().toISOString()
     }]);
 
     const { data: insertedMsg, error } = await supabase.from('event_chats').insert([{
       event_id: event.id, student_id: currentUser?.id,
-      sender_name: isAdmin ? (profile?.full_name || 'Admin Announcement') : profile.display_name,
+      sender_name: senderName,
       message: messageText, is_admin: isAdmin
     }]).select().single();
 
@@ -240,7 +260,7 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, r
             <p className="text-xs text-zinc-400 mt-1">
               {isAdmin
                 ? <span className="text-red-400 font-medium">Admin Moderation View</span>
-                : <span>Chatting as: {profile?.display_name ? <span className="font-bold text-white">{profile.display_name}</span> : <span className="text-red-400 font-bold">Anonymous (Action Required)</span>}</span>
+                : <span>Chatting as: {(profile?.display_name || profile?.full_name) ? <span className="font-bold text-white">{profile.display_name || profile.full_name}</span> : <span className="text-red-400 font-bold">Anonymous (Action Required)</span>}</span>
               }
             </p>
           </div>
@@ -342,9 +362,9 @@ export default function CommunityModal({ event, currentUser, isAdmin, profile, r
             <div className="p-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-center text-zinc-400 text-sm font-medium flex items-center justify-center gap-2">
               <Lock className="w-4 h-4" /> Chat has been locked by the admin.
             </div>
-          ) : (!isAdmin && !profile?.display_name) ? (
+          ) : (!isAdmin && !profile?.display_name && !profile?.full_name) ? (
             <div className="p-3 bg-amber-950/30 border border-amber-900/50 rounded-xl text-center text-amber-400 text-sm font-medium">
-              You must set a Display Name in Settings to participate in the chat.
+              You must set your Name in Settings to participate in the chat.
             </div>
           ) : (
             <form onSubmit={handleSendMessage} className="flex gap-2 relative">

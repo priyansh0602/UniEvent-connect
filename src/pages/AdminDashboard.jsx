@@ -2,10 +2,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, Settings, LogOut, ShieldCheck, MessageSquare, User, Users, ShieldAlert, Shield } from 'lucide-react';
+import { Plus, Calendar, MapPin, Link as LinkIcon, Edit, Trash2, X, Upload, Eye, Menu, Home, PlusCircle, LogOut, ShieldCheck, MessageSquare, Users, ShieldAlert, Shield } from 'lucide-react';
 import FormBuilder from '../components/FormBuilder';
 import SubmissionsTable from '../components/SubmissionsTable';
-import SettingsModal from '../components/SettingsModal';
 import CommunityModal from '../components/CommunityModal';
 import BlockedUsersModal from '../components/BlockedUsersModal';
 import ManageOrganizersModal from '../components/ManageOrganizersModal';
@@ -139,7 +138,6 @@ export default function AdminDashboard() {
   const [adminProfile, setAdminProfile] = useState(null);
   const [posterFile, setPosterFile] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [showManageOrganizers, setShowManageOrganizers] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
@@ -506,7 +504,6 @@ export default function AdminDashboard() {
             { icon: <PlusCircle className="w-5 h-5" />, label: 'Create New Event', action: () => { setSidebarOpen(false); resetForm(); setShowAddEventModal(true); } },
             { icon: <Users className="w-5 h-5" />, label: 'Manage Organizers', action: () => { setSidebarOpen(false); setShowManageOrganizers(true); } },
             { icon: <ShieldAlert className="w-5 h-5" />, label: 'Blocked Users', action: () => { setSidebarOpen(false); setShowBlockedUsers(true); } },
-            { icon: <Settings className="w-5 h-5" />, label: 'Settings', action: () => { setSidebarOpen(false); setShowSettings(true); } },
           ].map(item => (
             <button
               key={item.label}
@@ -545,13 +542,6 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowSettings(true)}
-            className="flex items-center justify-center w-10 h-10 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 hover:border-red-500/50 shadow-inner overflow-hidden transition-all group"
-            title="Admin Settings"
-          >
-            <User className="w-5 h-5 text-zinc-400 group-hover:text-red-500 transition-colors" />
-          </button>
           <button
             onClick={() => { resetForm(); setShowAddEventModal(true); }}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-xl shadow-md hover:shadow-lg transition-all"
@@ -635,15 +625,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <SettingsModal 
-          onClose={() => setShowSettings(false)} 
-          accentColor="red" 
-          role="admin" 
-          onProfileUpdated={(updates) => setAdminProfile(prev => ({ ...prev, ...updates }))}
-        />
-      )}
 
       {/* Submissions Table Modal */}
       {viewingSubmissionsEvent && (
