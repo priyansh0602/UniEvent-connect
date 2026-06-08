@@ -1,5 +1,5 @@
 // Admin Signup Screen - mirrors web app exactly
-// Includes Add University flow with OTP, Instagram DM, Razorpay payment
+// Includes Add University flow with OTP, Instagram DM, and mock payment
 import React, { useState, useEffect } from 'react';
 import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -109,20 +109,19 @@ export default function AdminSignup({ navigation }) {
   const handlePayment = async () => {
     setPaymentProcessing(true); setUniMessage('');
     try {
-      const { data: subData, error: subError } = await supabase.functions.invoke('create-razorpay-subscription');
-      if (subError) throw subError;
-      // On mobile we open Razorpay URL in browser (no native SDK needed for MVP)
+      // Simulate payment for mock mode
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setPaymentProcessing(false);
       Alert.alert(
-        'Activate License',
-        `Complete payment of ₹99 for ${uniName}.\n\nFor now, payment will open in your browser. After payment, return here and tap "I have paid".`,
+        'Mock Payment Complete',
+        `Payment for ₹99 has been simulated for ${uniName}. Press Continue to finish setup.`,
         [
-          { text: 'Open Payment', onPress: () => { Linking.openURL(`https://rzp.io/l/${subData.short_url || subData.id}`).catch(() => {}); } },
-          { text: 'I have paid', style: 'default', onPress: () => handlePaymentContinue() },
-          { text: 'Cancel', style: 'cancel', onPress: () => setPaymentProcessing(false) }
+          { text: 'Continue', onPress: () => handlePaymentContinue() },
+          { text: 'Cancel', style: 'cancel' }
         ]
       );
     } catch (err) {
-      Alert.alert('Payment Gateway Error', 'Could not connect to Razorpay. Please verify your connection and try again.');
+      Alert.alert('Payment Error', 'Mock payment failed. Please try again.');
       setPaymentProcessing(false);
     }
   };
