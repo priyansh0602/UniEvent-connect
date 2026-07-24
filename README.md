@@ -127,4 +127,3 @@ For issues, questions, or feedback:
 
 ---
 
-Made with ❤️ for campus communities
